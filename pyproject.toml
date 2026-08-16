@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "marketbench-agents"
+version = "0.1.0"
+description = "A deterministic, point-in-time benchmark for market coding agents and agent swarms."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "MarketBench contributors" }]
+dependencies = []
+
+[project.optional-dependencies]
+train = [
+  "accelerate>=1.7",
+  "bitsandbytes>=0.46",
+  "datasets>=4.0",
+  "peft>=0.19",
+  "torch>=2.7",
+  "transformers>=4.56",
+  "trl>=0.27",
+]
+
+[project.scripts]
+marketbench = "marketbench.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

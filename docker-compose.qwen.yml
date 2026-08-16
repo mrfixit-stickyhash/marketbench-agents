@@ -1,0 +1,23 @@
+services:
+  qwen:
+    image: vllm/vllm-openai:latest
+    ports:
+      - "8000:8000"
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+    command:
+      - --model
+      - ${QWEN_MODEL_ID:-Qwen/Qwen3.6-27B}
+      - --max-model-len
+      - ${MAX_MODEL_LEN:-32768}
+      - --gpu-memory-utilization
+      - "0.92"
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+

@@ -1,0 +1,35 @@
+[run]
+name = "marketbench-demo"
+strategies = ["cash", "equal_weight", "momentum", "safe_program", "agent_swarm", "program_author_agent"]
+output_root = "runs"
+
+[data]
+kind = "synthetic"
+bars = 420
+seed = 7
+symbols = ["ALPHA", "BETA", "GAMMA", "DELTA", "EPSILON", "ZETA"]
+anonymize_symbols = false
+
+[engine]
+initial_cash = 100000.0
+warmup_bars = 60
+decision_every = 5
+history_bars = 80
+bars_per_year = 252
+expose_timestamps = false
+include_news_body = false
+
+[execution]
+fee_bps = 1.0
+slippage_bps = 2.0
+
+[risk]
+long_only = true
+max_position_weight = 0.35
+max_gross_exposure = 0.95
+min_cash_weight = 0.05
+max_turnover_per_decision = 0.65
+
+[provider]
+kind = "scripted"
+

@@ -1,0 +1,40 @@
+[run]
+name = "point-in-time-csv"
+strategies = ["cash", "equal_weight", "momentum", "agent_swarm"]
+output_root = "runs"
+
+[data]
+kind = "csv"
+bars_path = "../data/market/bars.csv"
+news_path = "../data/market/news.csv"
+name = "licensed-point-in-time-data"
+anonymize_symbols = true
+
+[engine]
+initial_cash = 100000.0
+warmup_bars = 60
+decision_every = 12
+history_bars = 80
+bars_per_year = 1638
+expose_timestamps = false
+include_news_body = false
+
+[execution]
+fee_bps = 1.0
+slippage_bps = 3.0
+
+[risk]
+long_only = true
+max_position_weight = 0.25
+max_gross_exposure = 0.90
+min_cash_weight = 0.10
+max_turnover_per_decision = 0.35
+
+[provider]
+kind = "openai_compatible"
+base_url = "http://127.0.0.1:8000/v1"
+model = "Qwen/Qwen3.6-27B"
+api_key_env = "MARKETBENCH_API_KEY"
+timeout_seconds = 180
+temperature = 0.1
+

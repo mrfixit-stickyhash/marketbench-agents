@@ -1,0 +1,40 @@
+[run]
+name = "qwen-local-comparison"
+strategies = ["cash", "equal_weight", "momentum", "direct_agent", "agent_swarm", "program_author_agent"]
+output_root = "runs"
+
+[data]
+kind = "synthetic"
+bars = 420
+seed = 11
+symbols = ["ALPHA", "BETA", "GAMMA", "DELTA", "EPSILON", "ZETA"]
+anonymize_symbols = false
+
+[engine]
+initial_cash = 100000.0
+warmup_bars = 60
+decision_every = 10
+history_bars = 80
+bars_per_year = 252
+expose_timestamps = false
+include_news_body = false
+
+[execution]
+fee_bps = 1.0
+slippage_bps = 2.0
+
+[risk]
+long_only = true
+max_position_weight = 0.35
+max_gross_exposure = 0.95
+min_cash_weight = 0.05
+max_turnover_per_decision = 0.65
+
+[provider]
+kind = "openai_compatible"
+base_url = "http://127.0.0.1:8000/v1"
+model = "Qwen/Qwen3.6-27B"
+api_key_env = "MARKETBENCH_API_KEY"
+timeout_seconds = 180
+temperature = 0.1
+
