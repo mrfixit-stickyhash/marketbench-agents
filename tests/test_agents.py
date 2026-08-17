@@ -38,6 +38,7 @@ class AgentTests(unittest.TestCase):
             strategy = SwarmAgentStrategy(ScriptedProvider(), TrajectoryLogger(directory, "swarm"))
             decision = strategy.decide(snapshot())
             self.assertEqual(decision.target_weights, {"AAA": 0.3})
+            self.assertEqual(set(decision.forecasts), {"AAA", "BBB"})
 
     def test_program_author_compiles_once(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -52,4 +53,3 @@ class AgentTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

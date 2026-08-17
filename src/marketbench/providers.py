@@ -81,6 +81,27 @@ class ScriptedProvider:
             payload = {}
         system_lower = system.lower()
         market = payload.get("market", {})
+
+        def forecasts() -> dict[str, dict[str, float | int]]:
+            result: dict[str, dict[str, float | int]] = {}
+            for symbol, item in market.items():
+                momentum = float(item.get("return_20", 0.0))
+                score = max(-1.0, min(1.0, momentum * 5.0))
+                expected_return = score * 0.05
+                price = float(item.get("price", 0.0))
+                if price <= 0:
+                    continue
+                result[str(symbol)] = {
+                    "score": score,
+                    "probability_outperform": max(0.05, min(0.95, 0.5 + score * 0.35)),
+                    "expected_return": expected_return,
+                    "horizon_bars": 5,
+                    "expected_event_bars": 5,
+                    "target_price": price * (1.0 + expected_return),
+                    "invalidation_price": price * (0.96 if score >= 0 else 1.04),
+                }
+            return result
+
         if "researcher" in system_lower:
             returns = [float(item.get("return_20", 0.0)) for item in market.values()]
             average = sum(returns) / len(returns) if returns else 0.0
@@ -92,6 +113,7 @@ class ScriptedProvider:
                 "target_weights": proposal.get("target_weights", {}),
                 "rationale": "Proposal passed to the deterministic risk gate.",
                 "confidence": min(0.85, float(proposal.get("confidence", 0.6))),
+                "forecasts": proposal.get("forecasts", {}),
             }
         elif "program author" in system_lower:
             result = {
@@ -113,6 +135,7 @@ class ScriptedProvider:
                 "target_weights": {symbol: weight for symbol in selected},
                 "rationale": "Selected assets with positive observed momentum.",
                 "confidence": 0.72,
+                "forecasts": forecasts(),
             }
         return ProviderResult(json.dumps(result), self.model, {"input_tokens": 0, "output_tokens": 0})
 
@@ -133,4 +156,3 @@ def build_provider(config: dict[str, Any]):
         timeout_seconds=float(config.get("timeout_seconds", 120.0)),
         temperature=float(config.get("temperature", 0.1)),
     )
-

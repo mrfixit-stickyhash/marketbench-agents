@@ -8,6 +8,8 @@ from .data import MarketDataset
 from .metrics import calculate_metrics
 from .models import BacktestResult, Decision, iso_timestamp
 from .portfolio import ExecutionConfig, Portfolio, RiskGate
+from .position_metrics import build_position_episodes, calculate_position_metrics
+from .research_metrics import ForecastRecord, evaluate_forecasts
 from .strategies import MarketSnapshot, Strategy, build_features
 from .trajectory import TrajectoryLogger
 
@@ -52,6 +54,7 @@ class BacktestEngine:
         last_decision_time: datetime | None = None
         agent_errors = 0
         decision_count = 0
+        forecast_records: list[ForecastRecord] = []
 
         self.logger.emit(
             "run_started",
@@ -120,7 +123,15 @@ class BacktestEngine:
 
             risk = self.risk_gate.sanitize(proposed.target_weights, snapshot.current_weights)
             violations.extend(risk.violations)
-            pending = Decision(risk.target_weights, proposed.rationale, proposed.confidence, proposed.metadata)
+            pending = Decision(
+                risk.target_weights,
+                proposed.rationale,
+                proposed.confidence,
+                proposed.metadata,
+                proposed.forecasts,
+            )
+            if proposed.forecasts:
+                forecast_records.append(ForecastRecord(step, proposed.forecasts))
             self.logger.emit(
                 "decision",
                 {
@@ -143,5 +154,20 @@ class BacktestEngine:
             decision_count=decision_count,
         )
         metrics["agent_error_count"] = agent_errors
+        forecast_metrics, forecast_evaluations = evaluate_forecasts(self.dataset, forecast_records)
+        position_episodes = build_position_episodes(self.dataset, portfolio.trades)
+        metrics.update(forecast_metrics)
+        metrics.update(calculate_position_metrics(position_episodes))
+        self.logger.write_json("forecast-evaluations.json", forecast_evaluations)
+        self.logger.write_json("position-episodes.json", [episode.to_dict() for episode in position_episodes])
         self.logger.emit("run_finished", {"metrics": metrics, "violations": violations})
-        return BacktestResult(self.strategy.name, metrics, equity_curve, portfolio.trades, violations, str(self.logger.output_dir))
+        return BacktestResult(
+            self.strategy.name,
+            metrics,
+            equity_curve,
+            portfolio.trades,
+            violations,
+            str(self.logger.output_dir),
+            position_episodes,
+            forecast_evaluations,
+        )

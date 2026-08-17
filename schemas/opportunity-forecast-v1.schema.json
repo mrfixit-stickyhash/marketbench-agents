@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://marketbench.local/schemas/opportunity-forecast-v1.schema.json",
+  "title": "MarketBench Opportunity Forecast v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["score", "probability_outperform", "expected_return", "horizon_bars"],
+  "properties": {
+    "score": {"type": "number", "minimum": -1, "maximum": 1},
+    "probability_outperform": {"type": "number", "minimum": 0, "maximum": 1},
+    "expected_return": {"type": "number"},
+    "horizon_bars": {"type": "integer", "minimum": 1},
+    "expected_event_bars": {"type": ["integer", "null"], "minimum": 1},
+    "target_price": {"type": ["number", "null"], "exclusiveMinimum": 0},
+    "invalidation_price": {"type": ["number", "null"], "exclusiveMinimum": 0}
+  }
+}

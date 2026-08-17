@@ -37,6 +37,8 @@ class BenchmarkTests(unittest.TestCase):
             )
             self.assertEqual(len(results), 2)
             self.assertTrue((root / "comparison.html").exists())
+            self.assertTrue((root / "direct_agent" / "forecast-evaluations.json").exists())
+            self.assertTrue((root / "direct_agent" / "position-episodes.json").exists())
             output = Path(directory) / "sft.jsonl"
             count = export_sft_dataset(root, output)
             self.assertGreater(count, 0)

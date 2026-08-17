@@ -8,4 +8,5 @@ build/
 runs/
 data/
 checkpoints/
-
+datasets/
+.agent-context/

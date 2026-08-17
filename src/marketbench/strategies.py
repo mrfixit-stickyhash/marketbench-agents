@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol
 
-from .models import Decision
+from .models import Decision, OpportunityForecast
 
 
 @dataclass(slots=True)
@@ -72,10 +72,16 @@ class MomentumStrategy:
             reverse=True,
         )
         selected = [symbol for score, symbol in ranked[: self.top_k] if score > 0]
+        forecasts = build_opportunity_forecasts(snapshot, {symbol: score for score, symbol in ranked})
         if not selected:
-            return Decision({}, "No positive 20-period momentum; hold cash.", 0.7)
+            return Decision({}, "No positive 20-period momentum; hold cash.", 0.7, forecasts=forecasts)
         weight = min(0.30, 0.90 / len(selected))
-        return Decision({symbol: weight for symbol in selected}, "Deterministic 20-period momentum baseline.", 0.8)
+        return Decision(
+            {symbol: weight for symbol in selected},
+            "Deterministic 20-period momentum baseline.",
+            0.8,
+            forecasts=forecasts,
+        )
 
 
 @dataclass(slots=True)
@@ -138,13 +144,54 @@ class SafeProgramStrategy:
                 if math.isfinite(score):
                     candidates.append((score, symbol))
         candidates.sort(reverse=True)
+        forecasts = build_opportunity_forecasts(snapshot, {symbol: score for score, symbol in candidates})
         selected = [symbol for score, symbol in candidates[: self.spec.top_k] if score >= self.spec.minimum_signal]
         if not selected:
-            return Decision({}, f"Program {self.spec.signal} found no qualifying assets.", 0.6, {"program": self.spec.to_dict()})
+            return Decision(
+                {},
+                f"Program {self.spec.signal} found no qualifying assets.",
+                0.6,
+                {"program": self.spec.to_dict()},
+                forecasts,
+            )
         investable = 1.0 - self.spec.cash_buffer
         weight = min(self.spec.max_weight, investable / len(selected))
         weights = {symbol: weight for symbol in selected}
-        return Decision(weights, f"Executed safe {self.spec.signal} program.", 0.8, {"program": self.spec.to_dict()})
+        return Decision(
+            weights,
+            f"Executed safe {self.spec.signal} program.",
+            0.8,
+            {"program": self.spec.to_dict()},
+            forecasts,
+        )
+
+
+def build_opportunity_forecasts(
+    snapshot: MarketSnapshot,
+    raw_scores: dict[str, float] | None = None,
+    horizon_bars: int = 5,
+) -> dict[str, OpportunityForecast]:
+    """Create deterministic, fully declared forecasts for baseline comparison."""
+
+    forecasts: dict[str, OpportunityForecast] = {}
+    for symbol in snapshot.symbols:
+        feature = snapshot.features.get(symbol, {})
+        raw = float((raw_scores or {}).get(symbol, feature.get("return_20", 0.0)))
+        score = max(-1.0, min(1.0, raw * 5.0))
+        expected_return = score * 0.05
+        price = float(snapshot.prices.get(symbol, feature.get("price", 0.0)))
+        if price <= 0:
+            continue
+        forecasts[symbol] = OpportunityForecast(
+            score=score,
+            probability_outperform=max(0.05, min(0.95, 0.5 + score * 0.35)),
+            expected_return=expected_return,
+            horizon_bars=horizon_bars,
+            expected_event_bars=horizon_bars,
+            target_price=price * (1.0 + expected_return),
+            invalidation_price=price * (0.96 if score >= 0 else 1.04),
+        )
+    return forecasts
 
 
 def build_features(history: dict[str, list[float]]) -> dict[str, dict[str, float]]:
@@ -163,4 +210,3 @@ def build_features(history: dict[str, list[float]]) -> dict[str, dict[str, float
         feature["volatility_20"] = statistics.stdev(period_returns) if len(period_returns) > 1 else 0.0
         result[symbol] = feature
     return result
-

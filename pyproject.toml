@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "marketbench-agents"
-version = "0.1.0"
+version = "0.2.0"
 description = "A deterministic, point-in-time benchmark for market coding agents and agent swarms."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,4 +31,3 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-

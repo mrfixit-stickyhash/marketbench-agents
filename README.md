@@ -21,6 +21,10 @@ The project is intentionally safe by default:
 - Fees, slippage, cash, positions, concentration, gross exposure, and turnover limits
 - Point-in-time news using separate `published_at` and `available_at` timestamps
 - Full observation/model/decision/fill/reward trajectory logging
+- Versioned per-asset opportunity forecasts with declared horizon, target, invalidation and conviction
+- Rank IC, conviction calibration, target accuracy, timing error and opportunity-capture evaluation
+- Position-episode ROI, holding time, time-underwater and adverse/favorable excursion analytics
+- Frozen AutoResearch evaluator across one or more hidden walk-forward suites
 - HTML reports and machine-readable metrics
 - RuneBench result conversion
 - Distillation-ready JSONL export
@@ -151,6 +155,51 @@ Each strategy directory contains:
 - `equity.csv` — timestamped paper-equity curve
 - `trades.csv` — simulated fills
 - `violations.json` — deterministic risk interventions
+- `forecast-evaluations.json` — realized Rank IC, timing, target, calibration and excursion inputs
+- `position-episodes.json` — completed and end-marked position episodes with ROI and holding analytics
 - `report.html` — self-contained visual report
 
 The suite root also contains `comparison.html`, `comparison.json`, and `manifest.json`.
+
+## Objective research metrics
+
+MarketBench now separates two questions that should not be collapsed into one score:
+
+1. **Did the agent understand which opportunities were best?** Rank IC, Brier calibration, target error, target timing, adverse excursion and opportunity capture evaluate the declared forecasts.
+2. **Could the agent turn that understanding into portfolio performance?** Net return, drawdown, per-position ROI, holding duration, time underwater, turnover, fees and violations evaluate execution.
+
+Agent strategies can attach a forecast to every decision:
+
+```json
+{
+  "forecasts": {
+    "ASSET_001": {
+      "score": 0.8,
+      "probability_outperform": 0.72,
+      "expected_return": 0.10,
+      "horizon_bars": 10,
+      "expected_event_bars": 7,
+      "target_price": 115.0,
+      "invalidation_price": 94.0
+    }
+  }
+}
+```
+
+See [docs/METRICS.md](docs/METRICS.md) and [schemas/opportunity-forecast-v1.schema.json](schemas/opportunity-forecast-v1.schema.json).
+
+## AutoResearch evaluation
+
+Run the candidate through multiple timestamped suites, then reduce the hidden-window results to one reproducible scalar:
+
+```bash
+marketbench evaluate-research \
+  --runs runs/research-windows \
+  --strategy agent_swarm \
+  --benchmark equal_weight \
+  --primary-metric rank_ic_mean \
+  --max-drawdown 0.25 \
+  --output research-evaluation.json
+```
+
+The evaluator uses hard eligibility gates instead of hiding unacceptable drawdown or agent failures inside arbitrary score weights. The research agent must not be allowed to edit the evaluator, test windows, schemas or tests. See [docs/AUTORESEARCH.md](docs/AUTORESEARCH.md).

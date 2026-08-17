@@ -9,7 +9,26 @@ from .models import BacktestResult
 
 def _format_metric(name: str, value: float | int | str) -> str:
     if isinstance(value, float):
-        if name in {"total_return", "annualized_return", "annualized_volatility", "max_drawdown"}:
+        if name in {
+            "total_return",
+            "annualized_return",
+            "annualized_volatility",
+            "max_drawdown",
+            "forecast_hit_rate",
+            "forecast_excess_return_mean",
+            "expected_return_error_mean",
+            "target_hit_rate",
+            "target_error_mean",
+            "forecast_max_adverse_excursion_mean",
+            "forecast_max_favorable_excursion_mean",
+            "opportunity_capture_mean",
+            "invalidation_hit_rate",
+            "position_win_rate",
+            "mean_position_roi",
+            "median_position_roi",
+            "mean_position_max_adverse_excursion",
+            "mean_position_max_favorable_excursion",
+        }:
             return f"{value:.2%}"
         if name in {"initial_equity", "final_equity", "fees_paid"}:
             return f"${value:,.2f}"
@@ -53,7 +72,17 @@ def write_run_report(result: BacktestResult, path: str | Path) -> Path:
 
 def write_comparison_report(results: list[BacktestResult], path: str | Path) -> Path:
     destination = Path(path)
-    metric_names = ("score", "total_return", "sharpe", "max_drawdown", "turnover", "fees_paid", "trade_count", "violation_count")
+    metric_names = (
+        "score",
+        "total_return",
+        "rank_ic_mean",
+        "forecast_brier_score",
+        "target_hit_rate",
+        "mean_position_roi",
+        "mean_holding_bars",
+        "max_drawdown",
+        "trade_count",
+    )
     header = "".join(f"<th>{name.replace('_', ' ').title()}</th>" for name in metric_names)
     rows = ""
     for result in sorted(results, key=lambda item: float(item.metrics.get("score", 0.0)), reverse=True):
@@ -61,7 +90,6 @@ def write_comparison_report(results: list[BacktestResult], path: str | Path) -> 
         rows += f"<tr><th>{html.escape(result.name)}</th>{cells}</tr>"
     body = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MarketBench comparison</title>
 <style>body{{font:15px system-ui;background:#0b1020;color:#e8eefc;padding:32px}}main{{max-width:1200px;margin:auto}}table{{border-collapse:collapse;width:100%;background:#151d33}}th,td{{padding:10px;border:1px solid #2a3658;text-align:right}}th:first-child{{text-align:left}}thead th{{color:#9fb1d9}}</style></head>
-<body><main><h1>MarketBench comparison</h1><p>Higher score is better. Score combines Sharpe, drawdown, turnover and risk violations.</p><table><thead><tr><th>Strategy</th>{header}</tr></thead><tbody>{rows}</tbody></table></main></body></html>"""
+<body><main><h1>MarketBench comparison</h1><p>Portfolio performance and forecast intelligence are reported separately. Rank IC tests opportunity ordering; Brier score tests conviction calibration.</p><table><thead><tr><th>Strategy</th>{header}</tr></thead><tbody>{rows}</tbody></table></main></body></html>"""
     destination.write_text(body, encoding="utf-8")
     return destination
-

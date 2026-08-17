@@ -135,6 +135,9 @@ def export_sft_dataset(runs_root: str | Path, output_path: str | Path, min_score
                         "run_score": score,
                         "total_return": metrics.get("total_return"),
                         "max_drawdown": metrics.get("max_drawdown"),
+                        "rank_ic_median": metrics.get("rank_ic_median"),
+                        "forecast_brier_score": metrics.get("forecast_brier_score"),
+                        "mean_position_roi": metrics.get("mean_position_roi"),
                     },
                 }
                 output.write(json.dumps(record, separators=(",", ":")) + "\n")

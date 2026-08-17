@@ -14,6 +14,7 @@ from .engine import EngineConfig
 from .integrations.runebench import convert_runebench
 from .portfolio import ExecutionConfig, RiskConfig
 from .providers import build_provider
+from .research_eval import evaluate_research_suites, write_research_evaluation
 from .synthetic import generate_synthetic_dataset
 
 
@@ -38,12 +39,18 @@ def _dataset_from_config(config: dict[str, Any]) -> tuple[MarketDataset, dict[st
 
 def _print_results(results) -> None:
     print("\nMarketBench results")
-    print(f"{'strategy':24} {'score':>10} {'return':>10} {'sharpe':>10} {'drawdown':>10}")
+    print(
+        f"{'strategy':24} {'score':>9} {'return':>9} {'sharpe':>9} "
+        f"{'rank IC':>9} {'brier':>9} {'drawdown':>9}"
+    )
     for result in sorted(results, key=lambda item: float(item.metrics["score"]), reverse=True):
+        has_forecasts = int(result.metrics.get("forecast_count", 0)) > 0
+        rank_ic = f"{float(result.metrics.get('rank_ic_mean', 0.0)):.3f}" if has_forecasts else "n/a"
+        brier = f"{float(result.metrics.get('forecast_brier_score', 0.0)):.3f}" if has_forecasts else "n/a"
         print(
-            f"{result.name:24} {float(result.metrics['score']):10.3f} "
-            f"{float(result.metrics['total_return']):10.2%} {float(result.metrics['sharpe']):10.3f} "
-            f"{float(result.metrics['max_drawdown']):10.2%}"
+            f"{result.name:24} {float(result.metrics['score']):9.3f} "
+            f"{float(result.metrics['total_return']):9.2%} {float(result.metrics['sharpe']):9.3f} "
+            f"{rank_ic:>9} {brier:>9} {float(result.metrics['max_drawdown']):9.2%}"
         )
 
 
@@ -138,6 +145,21 @@ def command_doctor(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_evaluate_research(args: argparse.Namespace) -> int:
+    result = evaluate_research_suites(
+        runs_root=args.runs,
+        strategy=args.strategy,
+        benchmark=args.benchmark,
+        primary_metric=args.primary_metric,
+        max_drawdown=args.max_drawdown,
+        min_forecast_groups=args.min_forecast_groups,
+    )
+    if args.output:
+        write_research_evaluation(result, args.output)
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0 if int(result["eligible_window_count"]) > 0 else 3
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="marketbench", description="Deterministic market benchmark for coding agents")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -173,6 +195,23 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = subparsers.add_parser("doctor", help="Check a configured model endpoint")
     doctor.add_argument("--config", required=True)
     doctor.set_defaults(func=command_doctor)
+
+    evaluator = subparsers.add_parser(
+        "evaluate-research",
+        help="Produce one frozen AutoResearch score across completed hidden-window suites",
+    )
+    evaluator.add_argument("--runs", required=True, help="Suite directory or parent containing several suites")
+    evaluator.add_argument("--strategy", required=True, help="Candidate strategy name in comparison.json")
+    evaluator.add_argument("--benchmark", default="equal_weight", help="Frozen benchmark strategy name")
+    evaluator.add_argument(
+        "--primary-metric",
+        choices=("rank_ic_mean", "rank_ic_median", "net_excess_return"),
+        default="rank_ic_mean",
+    )
+    evaluator.add_argument("--max-drawdown", type=float, default=0.25)
+    evaluator.add_argument("--min-forecast-groups", type=int, default=3)
+    evaluator.add_argument("--output", help="Optional JSON output path")
+    evaluator.set_defaults(func=command_evaluate_research)
     return parser
 
 

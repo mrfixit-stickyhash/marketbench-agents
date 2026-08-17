@@ -4,7 +4,7 @@ import json
 import time
 from typing import Any
 
-from .models import Decision
+from .models import Decision, OpportunityForecast
 from .providers import ProviderResult
 from .strategies import MarketSnapshot, ProgramSpec, SafeProgramStrategy
 from .trajectory import TrajectoryLogger
@@ -60,10 +60,18 @@ def _decision_from_mapping(value: dict[str, Any]) -> Decision:
     weights = value.get("target_weights", {})
     if not isinstance(weights, dict):
         raise ValueError("target_weights must be an object")
+    raw_forecasts = value.get("forecasts", {})
+    forecasts: dict[str, OpportunityForecast] = {}
+    if isinstance(raw_forecasts, dict):
+        for symbol, raw_forecast in raw_forecasts.items():
+            if not isinstance(raw_forecast, dict):
+                continue
+            forecasts[str(symbol)] = OpportunityForecast.from_mapping(raw_forecast)
     return Decision(
         target_weights={str(symbol): float(weight) for symbol, weight in weights.items()},
         rationale=str(value.get("rationale", ""))[:1000],
         confidence=max(0.0, min(1.0, float(value.get("confidence", 0.5)))),
+        forecasts=forecasts,
     )
 
 
@@ -76,7 +84,9 @@ class DirectAgentStrategy(AgentBase):
     def decide(self, snapshot: MarketSnapshot) -> Decision:
         system = (
             "You are a portfolio strategist in a historical replay. Use only the supplied point-in-time data. "
-            "Return JSON with target_weights, rationale, and confidence. Do not claim access to future data. "
+            "Return JSON with target_weights, rationale, confidence, and forecasts. Forecasts must be keyed by "
+            "symbol and contain score (-1 to 1), probability_outperform (0 to 1), expected_return, horizon_bars, "
+            "expected_event_bars, target_price, and invalidation_price. Do not claim access to future data. "
             "Weights are portfolio fractions; omit an asset to allocate zero. Keep at least 5% cash."
         )
         value = self._call("strategist", system, snapshot.to_agent_payload(), snapshot.timestamp)
@@ -99,7 +109,10 @@ class SwarmAgentStrategy(AgentBase):
         )
         proposal = self._call(
             "strategist",
-            "You are the portfolio strategist in an agent swarm. Return JSON with target_weights, rationale, and confidence. Keep at least 5% cash and never use information outside the payload.",
+            "You are the portfolio strategist in an agent swarm. Return JSON with target_weights, rationale, "
+            "confidence, and per-symbol forecasts containing score, probability_outperform, expected_return, "
+            "horizon_bars, expected_event_bars, target_price, and invalidation_price. Keep at least 5% cash and "
+            "never use information outside the payload.",
             {**base, "research": research},
             snapshot.timestamp,
         )
@@ -110,6 +123,9 @@ class SwarmAgentStrategy(AgentBase):
             snapshot.timestamp,
         )
         decision = _decision_from_mapping(reviewed)
+        proposal_decision = _decision_from_mapping(proposal)
+        if not decision.forecasts:
+            decision.forecasts = proposal_decision.forecasts
         decision.metadata.update({"research": research, "original_proposal": proposal})
         return decision
 
@@ -134,4 +150,3 @@ class ProgramAuthorAgent(AgentBase):
             self.program = SafeProgramStrategy(spec, name="authored_safe_program")
             self.logger.emit("program_compiled", {"program": spec.to_dict()}, snapshot.timestamp)
         return self.program.decide(snapshot)
-

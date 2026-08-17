@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://marketbench.local/schemas/trajectory-v1.schema.json",
+  "title": "MarketBench Trajectory Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "run_id", "sequence", "kind", "timestamp", "payload"],
+  "properties": {
+    "schema": {"const": "marketbench.trajectory.v1"},
+    "run_id": {"type": "string", "minLength": 1},
+    "sequence": {"type": "integer", "minimum": 1},
+    "kind": {
+      "enum": ["run_started", "observation", "model_response", "program_compiled", "decision", "fill", "agent_error", "run_finished"]
+    },
+    "timestamp": {"type": ["string", "null"], "format": "date-time"},
+    "payload": {"type": "object"}
+  }
+}
